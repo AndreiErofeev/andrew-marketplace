@@ -9,8 +9,8 @@ import { WORDS } from '../hooks/words'
 const SEC = 1000
 
 // The engine beneath the plugin: records pane opens and closes. The store
-// starts with B1 chosen unless a test gives its own.
-function world(on: On, store: Record<string, unknown> = { settings: { level: 'B1' } }) {
+// starts empty unless a test gives its own.
+function world(on: On, store: Record<string, unknown> = {}) {
   const clock = mock.clock(on)
   mock.store(on, store)
   const panes: string[] = []
@@ -273,27 +273,19 @@ describe('studying', () => {
 const PANE_PROPS = { title: 'Deutsch', isFocused: true, bodyColumns: 64, placement: 'dock', scroll: { offset: 0, bodyRows: 40 } }
 
 describe('levels', () => {
-  test('the first open asks for a level, then shows its words', async ($, on) => {
+  test('a new install learns A1 and the pane shows how to switch', async ($, on) => {
     world(on, {})
     await $.session.start(START)
     await $.command.run({ command: 'german', args: '' } as never)
     const ui = await $.ui.mount({ plugin: 'learn_german', surface: 'terminal', component: 'Pane', requestId: 'learn_german', props: PANE_PROPS as never })
-    expect(await ui.find({ type: 'Text', text: /Which words do you want to learn/ })).toBeDefined()
-    await ui.press({ key: 'level-A1' })
     expect(await ui.find({ type: 'Text', text: /Goethe A1/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /switch: \/german level a2\|b1/ })).toBeDefined()
     await ui.press({ key: 'show' })
     await ui.press({ key: 'know' })
     const stats = await $.command.run({ command: 'german', args: 'stats' } as never)
-    expect(stats.text).toContain(`German A1: 1 learning`)
+    expect(stats.text).toContain('German A1: 1 learning')
     expect(stats.text).toContain(`(of ${LEVELS.A1.length})`)
     await ui.unmount()
-  })
-
-  test('progress from before levels keeps learning B1', async ($, on) => {
-    world(on, { progress: { 5: [1, 0, 1, 0] } })
-    await $.session.start(START)
-    const stats = await $.command.run({ command: 'german', args: 'stats' } as never)
-    expect(stats.text).toContain('German B1: 1 learning')
   })
 
   test('/german level switches the list and keeps progress per word', async ($, on) => {
@@ -312,6 +304,40 @@ describe('levels', () => {
     const ids = new Set(WORDS.map(row => row[0]))
     expect(ids.size).toBe(WORDS.length)
     for (const list of Object.values(LEVELS)) for (const id of list) expect(ids.has(id)).toBe(true)
+  })
+})
+
+describe('reset', () => {
+  const PROGRESS = { progress: { 5: [1, 0, 1, 0] } }
+  const run = ($: any, args: string) => $.command.run({ command: 'german', args } as never)
+
+  test('/german reset alone only asks, and keeps the progress', async ($, on) => {
+    world(on, PROGRESS)
+    await $.session.start(START)
+    const asked = await run($, 'reset')
+    expect(asked.text).toContain('/german reset confirm')
+    expect((await run($, 'stats')).text).toContain('1 learning')
+  })
+
+  test('confirm without a reset request, or too late, keeps the progress', async ($, on) => {
+    const { clock } = world(on, PROGRESS)
+    await $.session.start(START)
+    expect((await run($, 'reset confirm')).text).toContain('Nothing to confirm')
+    await run($, 'reset')
+    await clock.advance(61 * SEC)
+    expect((await run($, 'reset confirm')).text).toContain('Nothing to confirm')
+    expect((await run($, 'stats')).text).toContain('1 learning')
+  })
+
+  test('reset, then confirm in time, deletes the progress and keeps the settings', async ($, on) => {
+    world(on, { ...PROGRESS, settings: { level: 'A2' } })
+    await $.session.start(START)
+    await run($, 'reset')
+    expect((await run($, 'reset confirm')).text).toContain('all progress deleted')
+    const stats = (await run($, 'stats')).text
+    expect(stats).toContain('German A2: 0 learning')
+    // A second confirm needs a new request.
+    expect((await run($, 'reset confirm')).text).toContain('Nothing to confirm')
   })
 })
 

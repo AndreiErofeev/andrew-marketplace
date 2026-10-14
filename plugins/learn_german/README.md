@@ -9,8 +9,8 @@ Learn German vocabulary while Claude Code works. When Claude does a long task, a
 - Progress is saved after each answer.
 
 <p>
-  <img src="docs/setup.svg" alt="The setup screen: select the A1, A2 or B1 word list" width="420">
-  <img src="docs/card.svg" alt="A flashcard with its meaning shown: word, plural, English, Russian, example and answer buttons" width="420">
+  <img src="docs/card.svg" alt="Flip mode: a flashcard with its meaning shown: word, plural, English, Russian, example and answer buttons" width="420">
+  <img src="docs/typing.svg" alt="Typing mode: the typed answer is correct" width="420">
 </p>
 
 ## Install
@@ -26,7 +26,9 @@ Then select a scope. For other ways to install (one command, shell, desktop app)
 
 ## First start
 
-Type `/german` to open the pane. The pane asks which list you want to learn: A1, A2 or B1. Press `1`, `2` or `3`. To change the list later, use `/german level`.
+You do not have to set anything. The plugin starts with the A1 list and flip-card mode. The top of the pane shows the current list and the command to change it, for example `/german level a2|b1`.
+
+Type `/german` to open the pane now, or wait until Claude works on a long task.
 
 If the pane opens by itself during Claude's work and does not have focus, press `ctrl+x` then `tab` to focus it. Press `Esc` to go back to the prompt.
 
@@ -35,10 +37,11 @@ If the pane opens by itself during Claude's work and does not have focus, press 
 | Command | What it does |
 | --- | --- |
 | `/german` | Open or close the pane. |
-| `/german level a1\|a2\|b1` | Select the word list. Your progress for each word stays. |
+| `/german level a1\|a2\|b1` | Select the word list (default: A1). Your progress for each word stays. |
 | `/german flip` / `/german type` | Select flip-card mode or typing mode. |
 | `/german stats` | Show the counts for the current list: learning, mastered, hidden, not seen. |
 | `/german on` / `/german off` | Turn the automatic pane on or off. |
+| `/german reset` | Delete your progress for all lists. To prevent accidents, this only asks: to delete, type `/german reset confirm` within 60 seconds. Settings stay. |
 | `/german set seconds <n>` | Seconds of work before the pane opens (default 20). |
 | `/german set tools <n>` | Number of tool calls that count as work when Claude only reads (default 3). |
 | `/german set reopen <n>` | When a new task starts within this many seconds after the pane closed, the pane opens again immediately (default 10). |

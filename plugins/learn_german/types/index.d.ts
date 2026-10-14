@@ -8,9 +8,8 @@ export type Tally = { shown: number; known: number; missed: number; almost: numb
 export type Typed = { text: string; verdict: 'correct' | 'almost' | 'wrong'; note?: string }
 
 export type View = {
-  // 'setup': the first open, before a level is chosen.
-  phase: 'setup' | 'card' | 'stats' | 'empty'
-  level: Level | null
+  phase: 'card' | 'stats' | 'empty'
+  level: Level
   wordId: number
   isRevealed: boolean
   isFresh: boolean

@@ -23,8 +23,7 @@ const ASKS_PERSON = new Set(['AskUserQuestion', 'ExitPlanMode'])
 export type Settings = {
   isEnabled: boolean
   mode: Mode
-  // null until the person picks a list on the setup screen.
-  level: Level | null
+  level: Level
   minSeconds: number
   minTools: number
   reopenSeconds: number
@@ -34,7 +33,7 @@ export type Settings = {
 const DEFAULTS: Settings = {
   isEnabled: true,
   mode: 'flip',
-  level: null,
+  level: 'A1',
   minSeconds: 20,
   minTools: 3,
   reopenSeconds: 10,
@@ -52,6 +51,8 @@ const PANE_ARGS = { id: PANE, title: 'Deutsch', columns: 64 }
 // Below this many body columns the three answer boxes stack.
 const WIDE = 60
 const UNDO_DEPTH = 20
+// /german reset waits this long for /german reset confirm.
+const RESET_WINDOW = 60 * 1000
 
 type Ops = {
   load: () => Promise<void>
@@ -68,6 +69,7 @@ type Ops = {
   reveal: () => Promise<void>
   setMode: (mode: Mode) => Promise<void>
   chooseLevel: (level: Level) => Promise<void>
+  resetProgress: () => Promise<void>
   overall: () => View['overall']
   saveSettings: () => Promise<void>
 }
@@ -93,6 +95,7 @@ export const register: Register = on => {
   let isManual = false
   let isDismissed = false
   let lastClosedAt = -Infinity
+  let resetAskedAt = -Infinity
   let closeTimer: Timer | undefined
   const turn = { isActive: false, startedAt: 0, actions: 0, calls: 0, isSuspended: false }
 
@@ -102,11 +105,6 @@ export const register: Register = on => {
       progress = ((await $.store.get('progress')) as Progress | undefined) ?? {}
       settings = { ...DEFAULTS, ...((await $.store.get('settings')) as Partial<Settings> | undefined) }
       isLoaded = true
-      // Installs from before levels learned the B1 list.
-      if (settings.level === null && Object.keys(progress).length > 0) {
-        settings = { ...settings, level: 'B1' }
-        await saveSettings()
-      }
     }
 
     // Only the values changed from the defaults are kept, so new defaults reach old installs.
@@ -131,7 +129,7 @@ export const register: Register = on => {
     }
 
     function levelIds(): readonly number[] {
-      return settings.level === null ? [] : LEVELS[settings.level]
+      return LEVELS[settings.level]
     }
 
     // The records of the chosen level's words: counts and cards stay within its list.
@@ -148,10 +146,8 @@ export const register: Register = on => {
       return summary(levelProgress(), levelIds().length)
     }
 
-    // The next card, the setup screen while no level is chosen, or the "empty"
-    // screen when every word is retired.
+    // The next card, or the "empty" screen when every word is retired.
     function nextView(prev: View, tally: Tally, now: number): View {
-      if (settings.level === null) return { ...prev, phase: 'setup', level: null, tally, overall: overall(), canUndo: false }
       const id = pickNext(levelIds(), progress, now, tally.shown, relearn, prev.wordId)
       const base = {
         ...prev,
@@ -250,10 +246,6 @@ export const register: Register = on => {
     async function finish() {
       if (!isOpen || isManual) return
       const current = await getView()
-      if (current?.phase === 'setup') {
-        await closePane()
-        return
-      }
       let left = Math.ceil(settings.statsSeconds)
       if (current !== null) await $.state.set(VIEW, { ...current, phase: 'stats', secondsLeft: left, overall: overall() })
       if (left <= 0) {
@@ -391,6 +383,18 @@ export const register: Register = on => {
       }
     }
 
+    // Every level's records go; settings stay.
+    async function resetProgress() {
+      progress = {}
+      relearn = []
+      history = []
+      await $.store.set('progress', progress)
+      const current = await getView()
+      if (current !== null && current.phase !== 'stats') {
+        await $.state.set(VIEW, nextView({ ...current, canUndo: false }, EMPTY_TALLY, await $.clock.now()))
+      }
+    }
+
     ops = {
       load,
       preparePane,
@@ -406,14 +410,15 @@ export const register: Register = on => {
       reveal,
       setMode,
       chooseLevel,
+      resetProgress,
       overall,
       saveSettings,
     }
     await load()
     await $.command.register({
       name: 'german',
-      description: 'German flashcards (Goethe A1, A2, B1): open now, level, on|off, flip|type, stats, set <seconds|tools|reopen|stats> <n>',
-      argumentHint: '[level a1|a2|b1|on|off|flip|type|stats|set …]',
+      description: 'German flashcards (Goethe A1, A2, B1): open now, level, on|off, flip|type, stats, reset, set <seconds|tools|reopen|stats> <n>',
+      argumentHint: '[level a1|a2|b1|on|off|flip|type|stats|reset|set …]',
     })
     $.clock.every(2000, () => void tick())
     return next(e)
@@ -493,16 +498,34 @@ export const register: Register = on => {
     if (word === 'level') {
       const level = LEVEL_NAMES.find(one => one.toLowerCase() === key)
       if (level === undefined) {
-        return { text: `Usage: /german level <a1|a2|b1>. Now: ${settings.level ?? 'not chosen'}.` }
+        return { text: `Usage: /german level <a1|a2|b1>. Now: ${settings.level}.` }
       }
       await ops.chooseLevel(level)
       return { text: `German cards: Goethe ${level}, ${LEVELS[level].length} words.` }
     }
     if (word === 'stats') {
-      if (settings.level === null) return { text: 'No level chosen yet: /german level <a1|a2|b1>.' }
       const s = ops.overall()
       return {
         text: `German ${settings.level}: ${s.learning} learning, ${s.mastered} mastered, ${s.retired} retired, ${s.unseen} not seen yet (of ${LEVELS[settings.level].length}).`,
+      }
+    }
+    // Two steps, so a typo cannot delete progress.
+    if (word === 'reset') {
+      const now = await $.clock.now()
+      if (key === 'confirm') {
+        if (now - resetAskedAt > RESET_WINDOW) {
+          return { text: 'Nothing to confirm. Run /german reset first.' }
+        }
+        resetAskedAt = -Infinity
+        await ops.resetProgress()
+        return { text: 'German cards: all progress deleted. Settings are kept.' }
+      }
+      resetAskedAt = now
+      const seen = Object.keys(progress).length
+      return {
+        text:
+          `This deletes your progress for all levels (${seen} words seen). Settings are kept.\n` +
+          'To confirm, run /german reset confirm within 60 seconds.',
       }
     }
     if (word === 'set') {
@@ -524,11 +547,11 @@ export const register: Register = on => {
     const s = settings
     return {
       text:
-        `German cards are ${s.isEnabled ? 'on' : 'off'}, level ${s.level ?? 'not chosen'}, ${s.mode} mode. ` +
+        `German cards are ${s.isEnabled ? 'on' : 'off'}, level ${s.level}, ${s.mode} mode. ` +
         `The pane opens after ${s.minSeconds}s of work ` +
         `(an edit/command, or ${s.minTools}+ tool calls); again at once within ${s.reopenSeconds}s; ` +
         `stats show ${s.statsSeconds}s before it closes.\n` +
-        'Usage: /german [level <a1|a2|b1>|on|off|flip|type|stats|set <seconds|tools|reopen|stats> <n>]',
+        'Usage: /german [level <a1|a2|b1>|on|off|flip|type|stats|reset|set <seconds|tools|reopen|stats> <n>]',
     }
   })
 
@@ -548,33 +571,7 @@ export const register: Register = on => {
         {right}
       </Box>
     )
-    const title = <Text color={c.text}>Deutsch · Goethe{v.level === null ? '' : ` ${v.level}`}</Text>
-
-    if (v.phase === 'setup') {
-      return (
-        <Box flexDirection="column" paddingX={1}>
-          {spread(title, <Text color={c.dim}>setup</Text>)}
-          {rule}
-          <Text> </Text>
-          <Text color={c.text} bold>
-            Which words do you want to learn?
-          </Text>
-          <Text color={c.dim}>Goethe-Zertifikat word lists. Change it later with /german level.</Text>
-          <Text> </Text>
-          {LEVEL_NAMES.map((level, i) => (
-            <Box key={`box-${level}`} borderStyle="round" borderColor={c.line} paddingX={1} flexDirection="column">
-              <Button key={`level-${level}`} plain hotkey={String(i + 1)} onPress={() => void ops?.chooseLevel(level)}>
-                {level} · {LEVEL_HINT[level]}
-              </Button>
-              <Text color={c.dim}>{LEVELS[level].length} words</Text>
-            </Box>
-          ))}
-          <Text> </Text>
-          {rule}
-          {e.props.isFocused ? <Text> </Text> : <Text color={c.dim}>ctrl+x tab to choose</Text>}
-        </Box>
-      )
-    }
+    const title = <Text color={c.text}>Deutsch · Goethe {v.level}</Text>
 
     if (v.phase === 'stats') {
       const n = answered(t)
@@ -630,6 +627,10 @@ export const register: Register = on => {
         {spread(title, <Text color={c.dim}>
           {v.due} due · {t.fresh} new
         </Text>)}
+        <Text color={c.dim}>
+          {LEVEL_HINT[v.level]} · switch: /german level{' '}
+          {LEVEL_NAMES.filter(one => one !== v.level).map(one => one.toLowerCase()).join('|')}
+        </Text>
         {rule}
         <Text> </Text>
       </Box>
