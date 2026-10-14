@@ -1,0 +1,123 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="586" height="465" viewBox="0 0 586 465">
+<rect width="100%" height="100%" rx="10" fill="#262626"/>
+<circle cx="18" cy="15" r="5.5" fill="#ff5f57"/><circle cx="36" cy="15" r="5.5" fill="#febc2e"/><circle cx="54" cy="15" r="5.5" fill="#28c840"/>
+<text x="293" y="19" fill="#9a8f7d" font-family="-apple-system, Segoe UI, sans-serif" font-size="12" text-anchor="middle">Claude Code · learn_german</text>
+<g font-family="SF Mono, Menlo, Consolas, DejaVu Sans Mono, monospace" font-size="14">
+<rect x="18.0" y="48.0" width="8.6" height="19" fill="#262626"/>
+<rect x="26.6" y="48.0" width="137.6" height="19" fill="#262626"/>
+<text x="26.6" y="62.0" fill="#e8dcc4" xml:space="preserve" textLength="137.6" lengthAdjust="spacingAndGlyphs">Deutsch · Goethe</text>
+<rect x="164.2" y="48.0" width="352.6" height="19" fill="#262626"/>
+<rect x="516.8" y="48.0" width="43.0" height="19" fill="#262626"/>
+<text x="516.8" y="62.0" fill="#9a8f7d" xml:space="preserve" textLength="43.0" lengthAdjust="spacingAndGlyphs">setup</text>
+<rect x="559.8" y="48.0" width="8.6" height="19" fill="#262626"/>
+<rect x="18.0" y="67.0" width="8.6" height="19" fill="#262626"/>
+<rect x="26.6" y="67.0" width="533.2" height="19" fill="#262626"/>
+<text x="26.6" y="81.0" fill="#5c554b" xml:space="preserve" textLength="533.2" lengthAdjust="spacingAndGlyphs">──────────────────────────────────────────────────────────────</text>
+<rect x="559.8" y="67.0" width="8.6" height="19" fill="#262626"/>
+<rect x="18.0" y="86.0" width="550.4" height="19" fill="#262626"/>
+<rect x="18.0" y="105.0" width="8.6" height="19" fill="#262626"/>
+<rect x="26.6" y="105.0" width="283.8" height="19" fill="#262626"/>
+<text x="26.6" y="119.0" fill="#e8dcc4" xml:space="preserve" textLength="283.8" lengthAdjust="spacingAndGlyphs" font-weight="bold">Which words do you want to learn?</text>
+<rect x="310.4" y="105.0" width="258.0" height="19" fill="#262626"/>
+<rect x="18.0" y="124.0" width="8.6" height="19" fill="#262626"/>
+<rect x="26.6" y="124.0" width="507.4" height="19" fill="#262626"/>
+<text x="26.6" y="138.0" fill="#9a8f7d" xml:space="preserve" textLength="507.4" lengthAdjust="spacingAndGlyphs">Goethe-Zertifikat word lists. Change it later with /german </text>
+<rect x="534.0" y="124.0" width="34.4" height="19" fill="#262626"/>
+<rect x="18.0" y="143.0" width="8.6" height="19" fill="#262626"/>
+<rect x="26.6" y="143.0" width="51.6" height="19" fill="#262626"/>
+<text x="26.6" y="157.0" fill="#9a8f7d" xml:space="preserve" textLength="51.6" lengthAdjust="spacingAndGlyphs">level.</text>
+<rect x="78.2" y="143.0" width="490.2" height="19" fill="#262626"/>
+<rect x="18.0" y="162.0" width="550.4" height="19" fill="#262626"/>
+<rect x="18.0" y="181.0" width="8.6" height="19" fill="#262626"/>
+<rect x="26.6" y="181.0" width="533.2" height="19" fill="#262626"/>
+<text x="26.6" y="195.0" fill="#5c554b" xml:space="preserve" textLength="533.2" lengthAdjust="spacingAndGlyphs">╭────────────────────────────────────────────────────────────╮</text>
+<rect x="559.8" y="181.0" width="8.6" height="19" fill="#262626"/>
+<rect x="18.0" y="200.0" width="8.6" height="19" fill="#262626"/>
+<rect x="26.6" y="200.0" width="8.6" height="19" fill="#262626"/>
+<text x="26.6" y="214.0" fill="#5c554b" xml:space="preserve" textLength="8.6" lengthAdjust="spacingAndGlyphs">│</text>
+<rect x="35.2" y="200.0" width="8.6" height="19" fill="#262626"/>
+<rect x="43.8" y="200.0" width="8.6" height="19" fill="#262626"/>
+<text x="43.8" y="214.0" fill="#b1b9f9" xml:space="preserve" textLength="8.6" lengthAdjust="spacingAndGlyphs">1</text>
+<rect x="52.4" y="200.0" width="498.8" height="19" fill="#262626"/>
+<text x="52.4" y="214.0" fill="#e8dcc4" xml:space="preserve" textLength="498.8" lengthAdjust="spacingAndGlyphs">: A1 · beginner                                           </text>
+<rect x="551.2" y="200.0" width="8.6" height="19" fill="#262626"/>
+<text x="551.2" y="214.0" fill="#5c554b" xml:space="preserve" textLength="8.6" lengthAdjust="spacingAndGlyphs">│</text>
+<rect x="559.8" y="200.0" width="8.6" height="19" fill="#262626"/>
+<rect x="18.0" y="219.0" width="8.6" height="19" fill="#262626"/>
+<rect x="26.6" y="219.0" width="8.6" height="19" fill="#262626"/>
+<text x="26.6" y="233.0" fill="#5c554b" xml:space="preserve" textLength="8.6" lengthAdjust="spacingAndGlyphs">│</text>
+<rect x="35.2" y="219.0" width="8.6" height="19" fill="#262626"/>
+<rect x="43.8" y="219.0" width="77.4" height="19" fill="#262626"/>
+<text x="43.8" y="233.0" fill="#9a8f7d" xml:space="preserve" textLength="77.4" lengthAdjust="spacingAndGlyphs">687 words</text>
+<rect x="121.2" y="219.0" width="430.0" height="19" fill="#262626"/>
+<rect x="551.2" y="219.0" width="8.6" height="19" fill="#262626"/>
+<text x="551.2" y="233.0" fill="#5c554b" xml:space="preserve" textLength="8.6" lengthAdjust="spacingAndGlyphs">│</text>
+<rect x="559.8" y="219.0" width="8.6" height="19" fill="#262626"/>
+<rect x="18.0" y="238.0" width="8.6" height="19" fill="#262626"/>
+<rect x="26.6" y="238.0" width="533.2" height="19" fill="#262626"/>
+<text x="26.6" y="252.0" fill="#5c554b" xml:space="preserve" textLength="533.2" lengthAdjust="spacingAndGlyphs">╰────────────────────────────────────────────────────────────╯</text>
+<rect x="559.8" y="238.0" width="8.6" height="19" fill="#262626"/>
+<rect x="18.0" y="257.0" width="8.6" height="19" fill="#262626"/>
+<rect x="26.6" y="257.0" width="533.2" height="19" fill="#262626"/>
+<text x="26.6" y="271.0" fill="#5c554b" xml:space="preserve" textLength="533.2" lengthAdjust="spacingAndGlyphs">╭────────────────────────────────────────────────────────────╮</text>
+<rect x="559.8" y="257.0" width="8.6" height="19" fill="#262626"/>
+<rect x="18.0" y="276.0" width="8.6" height="19" fill="#262626"/>
+<rect x="26.6" y="276.0" width="8.6" height="19" fill="#262626"/>
+<text x="26.6" y="290.0" fill="#5c554b" xml:space="preserve" textLength="8.6" lengthAdjust="spacingAndGlyphs">│</text>
+<rect x="35.2" y="276.0" width="8.6" height="19" fill="#262626"/>
+<rect x="43.8" y="276.0" width="8.6" height="19" fill="#262626"/>
+<text x="43.8" y="290.0" fill="#b1b9f9" xml:space="preserve" textLength="8.6" lengthAdjust="spacingAndGlyphs">2</text>
+<rect x="52.4" y="276.0" width="498.8" height="19" fill="#262626"/>
+<text x="52.4" y="290.0" fill="#e8dcc4" xml:space="preserve" textLength="498.8" lengthAdjust="spacingAndGlyphs">: A2 · elementary                                         </text>
+<rect x="551.2" y="276.0" width="8.6" height="19" fill="#262626"/>
+<text x="551.2" y="290.0" fill="#5c554b" xml:space="preserve" textLength="8.6" lengthAdjust="spacingAndGlyphs">│</text>
+<rect x="559.8" y="276.0" width="8.6" height="19" fill="#262626"/>
+<rect x="18.0" y="295.0" width="8.6" height="19" fill="#262626"/>
+<rect x="26.6" y="295.0" width="8.6" height="19" fill="#262626"/>
+<text x="26.6" y="309.0" fill="#5c554b" xml:space="preserve" textLength="8.6" lengthAdjust="spacingAndGlyphs">│</text>
+<rect x="35.2" y="295.0" width="8.6" height="19" fill="#262626"/>
+<rect x="43.8" y="295.0" width="86.0" height="19" fill="#262626"/>
+<text x="43.8" y="309.0" fill="#9a8f7d" xml:space="preserve" textLength="86.0" lengthAdjust="spacingAndGlyphs">1172 words</text>
+<rect x="129.8" y="295.0" width="421.4" height="19" fill="#262626"/>
+<rect x="551.2" y="295.0" width="8.6" height="19" fill="#262626"/>
+<text x="551.2" y="309.0" fill="#5c554b" xml:space="preserve" textLength="8.6" lengthAdjust="spacingAndGlyphs">│</text>
+<rect x="559.8" y="295.0" width="8.6" height="19" fill="#262626"/>
+<rect x="18.0" y="314.0" width="8.6" height="19" fill="#262626"/>
+<rect x="26.6" y="314.0" width="533.2" height="19" fill="#262626"/>
+<text x="26.6" y="328.0" fill="#5c554b" xml:space="preserve" textLength="533.2" lengthAdjust="spacingAndGlyphs">╰────────────────────────────────────────────────────────────╯</text>
+<rect x="559.8" y="314.0" width="8.6" height="19" fill="#262626"/>
+<rect x="18.0" y="333.0" width="8.6" height="19" fill="#262626"/>
+<rect x="26.6" y="333.0" width="533.2" height="19" fill="#262626"/>
+<text x="26.6" y="347.0" fill="#5c554b" xml:space="preserve" textLength="533.2" lengthAdjust="spacingAndGlyphs">╭────────────────────────────────────────────────────────────╮</text>
+<rect x="559.8" y="333.0" width="8.6" height="19" fill="#262626"/>
+<rect x="18.0" y="352.0" width="8.6" height="19" fill="#262626"/>
+<rect x="26.6" y="352.0" width="8.6" height="19" fill="#262626"/>
+<text x="26.6" y="366.0" fill="#5c554b" xml:space="preserve" textLength="8.6" lengthAdjust="spacingAndGlyphs">│</text>
+<rect x="35.2" y="352.0" width="8.6" height="19" fill="#262626"/>
+<rect x="43.8" y="352.0" width="8.6" height="19" fill="#262626"/>
+<text x="43.8" y="366.0" fill="#b1b9f9" xml:space="preserve" textLength="8.6" lengthAdjust="spacingAndGlyphs">3</text>
+<rect x="52.4" y="352.0" width="498.8" height="19" fill="#262626"/>
+<text x="52.4" y="366.0" fill="#e8dcc4" xml:space="preserve" textLength="498.8" lengthAdjust="spacingAndGlyphs">: B1 · intermediate                                       </text>
+<rect x="551.2" y="352.0" width="8.6" height="19" fill="#262626"/>
+<text x="551.2" y="366.0" fill="#5c554b" xml:space="preserve" textLength="8.6" lengthAdjust="spacingAndGlyphs">│</text>
+<rect x="559.8" y="352.0" width="8.6" height="19" fill="#262626"/>
+<rect x="18.0" y="371.0" width="8.6" height="19" fill="#262626"/>
+<rect x="26.6" y="371.0" width="8.6" height="19" fill="#262626"/>
+<text x="26.6" y="385.0" fill="#5c554b" xml:space="preserve" textLength="8.6" lengthAdjust="spacingAndGlyphs">│</text>
+<rect x="35.2" y="371.0" width="8.6" height="19" fill="#262626"/>
+<rect x="43.8" y="371.0" width="86.0" height="19" fill="#262626"/>
+<text x="43.8" y="385.0" fill="#9a8f7d" xml:space="preserve" textLength="86.0" lengthAdjust="spacingAndGlyphs">2825 words</text>
+<rect x="129.8" y="371.0" width="421.4" height="19" fill="#262626"/>
+<rect x="551.2" y="371.0" width="8.6" height="19" fill="#262626"/>
+<text x="551.2" y="385.0" fill="#5c554b" xml:space="preserve" textLength="8.6" lengthAdjust="spacingAndGlyphs">│</text>
+<rect x="559.8" y="371.0" width="8.6" height="19" fill="#262626"/>
+<rect x="18.0" y="390.0" width="8.6" height="19" fill="#262626"/>
+<rect x="26.6" y="390.0" width="533.2" height="19" fill="#262626"/>
+<text x="26.6" y="404.0" fill="#5c554b" xml:space="preserve" textLength="533.2" lengthAdjust="spacingAndGlyphs">╰────────────────────────────────────────────────────────────╯</text>
+<rect x="559.8" y="390.0" width="8.6" height="19" fill="#262626"/>
+<rect x="18.0" y="409.0" width="550.4" height="19" fill="#262626"/>
+<rect x="18.0" y="428.0" width="8.6" height="19" fill="#262626"/>
+<rect x="26.6" y="428.0" width="533.2" height="19" fill="#262626"/>
+<text x="26.6" y="442.0" fill="#5c554b" xml:space="preserve" textLength="533.2" lengthAdjust="spacingAndGlyphs">──────────────────────────────────────────────────────────────</text>
+<rect x="559.8" y="428.0" width="8.6" height="19" fill="#262626"/>
+</g></svg>

@@ -1,0 +1,14 @@
+{
+  "name": "andrew-marketplace",
+  "description": "Claude Code plugins by AndreiE",
+  "owner": {
+    "name": "AndreiE"
+  },
+  "plugins": [
+    {
+      "name": "learn_german",
+      "source": "./plugins/learn_german",
+      "description": "Goethe A1, A2 and B1 flashcards with spaced repetition in a side pane while Claude works"
+    }
+  ]
+}
