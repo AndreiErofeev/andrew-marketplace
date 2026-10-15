@@ -15,9 +15,13 @@ function world(on: On, store: Record<string, unknown> = {}) {
   const clock = mock.clock(on)
   mock.store(on, store)
   const panes: string[] = []
+  // Subagents the engine reports; a test sets their status.
+  const agents: { id: string; description: string; type: string; status: string }[] = []
   on('session.start', () => ({ cwd: '/tmp' }))
   on('command.register', (_$, e) => ({ value: { command: e.name } }))
   on('config.list', () => ({ value: [] }))
+  on('agent.list', () => ({ value: agents.map(a => ({ ...a })) }) as never)
+  on('classic.UserPromptSubmit', () => ({}) as never)
   on('ui.open', () => {
     panes.push('open')
     return { value: { isPlaced: true as const } }
@@ -34,7 +38,7 @@ function world(on: On, store: Record<string, unknown> = {}) {
   on('tool.call', () => ({ result: {} }) as never)
   on('classic.PermissionRequest', () => ({}) as never)
   on('tool.check', () => ({ decision: 'ask' }) as never)
-  return { clock, panes }
+  return { clock, panes, agents }
 }
 
 const START = { cwd: '/tmp', surface: 'terminal', isInteractive: true } as const
@@ -529,5 +533,48 @@ describe('when Claude asks the person', () => {
     await workingPane($, clock)
     await $.tool.check({ tool: 'Bash', input: { command: 'ls' } })
     expect(panes).toEqual(['open'])
+  })
+})
+
+describe('with subagents and auto mode', () => {
+  test('a background subagent keeps the pane open after the main turn ends', async ($, on) => {
+    const { clock, panes, agents } = world(on)
+    await $.session.start(START)
+    await $.turn.start({ text: 'fix it', turnId: 't1' })
+    await $.tool.call(edit)
+    agents.push({ id: 'a1', description: 'implement', type: 'general-purpose', status: 'running' })
+    await clock.advance(22 * SEC)
+    expect(panes).toEqual(['open'])
+    await $.turn.complete(done('t1'))
+    await clock.advance(30 * SEC)
+    expect(panes).toEqual(['open'])
+    agents[0]!.status = 'completed'
+    await clock.advance(6 * SEC)
+    expect(panes).toEqual(['open', 'close'])
+  })
+
+  test("a subagent's turn does not restart the main turn's clock", async ($, on) => {
+    const { clock, panes } = world(on)
+    await $.session.start(START)
+    await $.turn.start({ text: 'fix it', turnId: 't1' })
+    await $.tool.call(edit)
+    await clock.advance(15 * SEC)
+    await $.turn.start({ text: 'sub', turnId: 's1', agentId: 'a1' })
+    await clock.advance(6 * SEC)
+    expect(panes).toEqual(['open'])
+  })
+
+  test('in auto mode a classifier check does not close the pane', async ($, on) => {
+    const { clock, panes } = world(on)
+    await $.session.start(START)
+    await $.classic.UserPromptSubmit({ prompt: 'fix it', permission_mode: 'auto' } as never)
+    await $.turn.start({ text: 'fix it', turnId: 't1' })
+    await $.tool.call(edit)
+    await clock.advance(22 * SEC)
+    await $.tool.check({ tool: 'Bash', input: { command: 'ls' }, tool_use_id: 'u1' })
+    expect(panes).toEqual(['open'])
+    // The classifier hands it to the person: the dialog closes the pane.
+    await $.classic.PermissionRequest({ tool_name: 'Bash', tool_input: { command: 'ls' }, permission_mode: 'auto' } as never)
+    expect(panes).toEqual(['open', 'close'])
   })
 })

@@ -68,7 +68,7 @@ The keys are letters only. Claude Code dialogs use digits, `Enter`, `Esc`, `Tab`
 
 ## When the pane opens
 
-The pane opens when Claude works for 20 seconds or more and does real work: it edits a file, runs a command, or starts an agent, or it makes 3 or more tool calls. The pane closes when Claude asks you a question or needs a permission, and opens again after you answer. If the pane has focus, it first shows "Claude needs your answer" for 1.5 seconds and ignores keys, so a key you press for a card cannot answer Claude's dialog.
+The pane opens when Claude works for 20 seconds or more and does real work: it edits a file, runs a command, or starts an agent, or it makes 3 or more tool calls. The pane stays open while a subagent works, also a background agent after Claude's own turn ended. It closes when Claude asks you a question or needs a permission, and opens again after you answer. In auto mode, a check that the classifier decides does not close the pane. If the pane has focus, it first shows "Claude needs your answer" for 1.5 seconds and ignores keys, so a key you press for a card cannot answer Claude's dialog.
 
 ## Review intervals
 

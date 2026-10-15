@@ -24,6 +24,11 @@ const ASKS_PERSON = new Set(['AskUserQuestion', 'ExitPlanMode'])
 // When Claude asks the person, a focused pane waits this long before it closes,
 // so keys meant for a card cannot answer Claude's dialog.
 const ASK_GRACE_MS = 1500
+// Modes where core's `ask` goes to a classifier or a rule, not to the person.
+// If the person is asked after all, classic.PermissionRequest fires.
+const NO_DIALOG_MODES = new Set(['auto', 'dontAsk', 'bypassPermissions'])
+// Subagent states that mean it still works for this turn.
+const AGENT_BUSY = new Set(['pending', 'running'])
 
 export type Settings = {
   isEnabled: boolean
@@ -107,6 +112,8 @@ export const register: Register = on => {
   let lastClosedAt = -Infinity
   let resetAskedAt = -Infinity
   let closeTimer: Timer | undefined
+  // From the classic hooks' `permission_mode`: tool.check does not carry it.
+  let permissionMode = 'default'
   const turn = { isActive: false, startedAt: 0, actions: 0, calls: 0, isSuspended: false }
 
   on('session.start', async ($, e, next) => {
@@ -265,7 +272,8 @@ export const register: Register = on => {
 
     // Claude is done: show this round's stats with a countdown, then close.
     async function finish() {
-      if (!isOpen || isManual) return
+      if (!isOpen || isManual || closeTimer !== undefined) return
+      if (await areAgentsBusy()) return
       const current = await getView()
       let left = Math.ceil(settings.statsSeconds)
       if (current !== null) await $.state.set(VIEW, { ...current, phase: 'stats', secondsLeft: left, overall: overall() })
@@ -286,8 +294,18 @@ export const register: Register = on => {
       })
     }
 
-    function isWorkTurn(now: number): boolean {
-      if (!settings.isEnabled || !turn.isActive || turn.isSuspended || isDismissed || isOpen) return false
+    // A subagent (a background one too) can work on after the main turn ended.
+    async function areAgentsBusy(): Promise<boolean> {
+      try {
+        const agents = await $.agent.list()
+        return agents.some(a => a.teammateId === undefined && AGENT_BUSY.has(a.status))
+      } catch {
+        return false
+      }
+    }
+
+    function isWorkTurn(now: number, isWorking: boolean): boolean {
+      if (!settings.isEnabled || !isWorking || turn.isSuspended || isDismissed || isOpen) return false
       const elapsed = now - turn.startedAt
       const isQuickReturn = turn.startedAt - lastClosedAt < settings.reopenSeconds * 1000 && turn.actions >= 1
       const isLongWork = elapsed >= settings.minSeconds * 1000 && (turn.actions >= 1 || turn.calls >= settings.minTools)
@@ -295,7 +313,13 @@ export const register: Register = on => {
     }
 
     async function tick() {
-      if (isWorkTurn(await $.clock.now())) await openPane()
+      const isWorking = turn.isActive || (await areAgentsBusy())
+      // The main turn ended while subagents worked: show the stats once they are done.
+      if (!isWorking && isOpen && !isManual && closeTimer === undefined) {
+        await finish()
+        return
+      }
+      if (isWorkTurn(await $.clock.now(), isWorking)) await openPane()
     }
 
     // Claude asks the person: a focused pane first shows a screen without keys,
@@ -470,6 +494,8 @@ export const register: Register = on => {
   })
 
   on('turn.start', async ($, e, next) => {
+    // A subagent's turn is part of the main one: it must not reset its counters.
+    if (e.agentId !== undefined) return next(e)
     Object.assign(turn, { isActive: true, startedAt: await $.clock.now(), actions: 0, calls: 0, isSuspended: false })
     isDismissed = false
     if (closeTimer !== undefined) {
@@ -482,7 +508,8 @@ export const register: Register = on => {
   })
 
   on('tool.call', async ($, e, next) => {
-    if (!turn.isActive) return next(e)
+    // A background subagent's calls count after the main turn ended, too.
+    if (!turn.isActive && e.agentId === undefined) return next(e)
     turn.calls += 1
     if (ACTION_TOOLS.has(String(e.tool))) turn.actions += 1
     if (ASKS_PERSON.has(String(e.tool))) await ops?.suspend(next.signal)
@@ -495,7 +522,8 @@ export const register: Register = on => {
   // A permission dialog opens after this verdict: the pane goes first.
   on('tool.check', async ($, e, next) => {
     const verdict = await next(e)
-    if (verdict.decision === 'ask' && e.tool_use_id !== undefined && e.agentId === undefined && turn.isActive) {
+    const isPersonAsked = verdict.decision === 'ask' && !NO_DIALOG_MODES.has(permissionMode)
+    if (isPersonAsked && e.tool_use_id !== undefined && e.agentId === undefined && turn.isActive) {
       await ops?.suspend(next.signal)
     }
     return verdict
@@ -503,7 +531,19 @@ export const register: Register = on => {
 
   // Fallback: closes the pane at once if tool.check did not.
   on('classic.PermissionRequest', async ($, e, next) => {
-    if (turn.isActive) await ops?.suspend()
+    if (e.permission_mode !== undefined) permissionMode = e.permission_mode
+    if (turn.isActive && e.agent_id === undefined) await ops?.suspend()
+    return next(e)
+  }).catch(($, e, next) => next(e))
+
+  // tool.check does not carry the permission mode: keep the last one seen.
+  on('classic.UserPromptSubmit', async ($, e, next) => {
+    if (e.permission_mode !== undefined) permissionMode = e.permission_mode
+    return next(e)
+  }).catch(($, e, next) => next(e))
+
+  on('classic.PostToolUse', async ($, e, next) => {
+    if (e.agent_id === undefined && e.permission_mode !== undefined) permissionMode = e.permission_mode
     return next(e)
   }).catch(($, e, next) => next(e))
 
