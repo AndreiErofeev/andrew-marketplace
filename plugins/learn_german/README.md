@@ -6,6 +6,7 @@ Learn German vocabulary while Claude Code works. When Claude does a long task, a
 - Each card shows the word with its article, plural or verb forms, the English and Russian meaning, and example sentences.
 - Spaced repetition (Leitner boxes): words you know come back after longer intervals, and words you miss come back in the same session.
 - Two modes: flip cards, and typing (you type the German word, with its article).
+- Flip cards can show the German word first, the English and Russian meaning first, or a mix.
 - Progress is saved after each answer.
 
 <p>
@@ -39,6 +40,7 @@ If the pane opens by itself during Claude's work and does not have focus, press 
 | `/german` | Open or close the pane. |
 | `/german level a1\|a2\|b1` | Select the word list (default: A1). Your progress for each word stays. |
 | `/german flip` / `/german type` | Select flip-card mode or typing mode. |
+| `/german show de\|en\|mix` | Flip cards: show the German word first (`de`, default), the English and Russian meaning first (`en`), or a random side for each card (`mix`). |
 | `/german stats` | Show the counts for the current list: learning, mastered, hidden, not seen. |
 | `/german on` / `/german off` | Turn the automatic pane on or off. |
 | `/german reset` | Delete your progress for all lists. To prevent accidents, this only asks: to delete, type `/german reset confirm` within 60 seconds. Settings stay. |
@@ -50,21 +52,23 @@ If the pane opens by itself during Claude's work and does not have focus, press 
 
 ## Keys in the pane
 
+The keys are letters only. Claude Code dialogs use digits, `Enter`, `Esc`, `Tab`, `Space`, arrows and `y`/`n`. If the pane closes while you type, a letter only goes into Claude's prompt as text. It does not select an option in a dialog.
+
 | Key | Flip mode | Typing mode |
 | --- | --- | --- |
-| `s` | Show the meaning | Show the answer (counts as "don't know") |
-| `1` | I know it | — |
-| `2` | I don't know it | — |
-| `3` | Don't show this word again | Don't show this word again |
+| `s` | Show the other side of the card | Show the answer (counts as "don't know") |
+| `k` | I know it | — |
+| `d` | I don't know it | — |
+| `h` | Don't show this word again | Don't show this word again |
 | `Enter` | — | Check your answer |
-| `n` | — | Next word |
+| `w` | — | Next word |
 | `u` | Undo the last answer | Undo the last answer |
 | `t` | Change to typing mode | Change to flip mode |
 | `q` | Save and close for this task | Save and close for this task |
 
 ## When the pane opens
 
-The pane opens when Claude works for 20 seconds or more and does real work: it edits a file, runs a command, or starts an agent, or it makes 3 or more tool calls. The pane closes when Claude asks you a question or needs a permission, and opens again after you answer.
+The pane opens when Claude works for 20 seconds or more and does real work: it edits a file, runs a command, or starts an agent, or it makes 3 or more tool calls. The pane closes when Claude asks you a question or needs a permission, and opens again after you answer. If the pane has focus, it first shows "Claude needs your answer" for 1.5 seconds and ignores keys, so a key you press for a card cannot answer Claude's dialog.
 
 ## Review intervals
 

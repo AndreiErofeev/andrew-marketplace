@@ -1,6 +1,6 @@
 {
   "name": "learn_german",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Goethe A1, A2 and B1 flashcards with spaced repetition in a side pane while Claude works",
   "types": "./types/index.d.ts",
   "author": {

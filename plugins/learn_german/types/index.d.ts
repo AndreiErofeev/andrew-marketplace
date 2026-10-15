@@ -1,5 +1,8 @@
 export type Mode = 'flip' | 'type'
 
+// Flip mode: which side a card shows first. 'mix' picks one per card.
+export type Direction = 'de' | 'en' | 'mix'
+
 // A Goethe-Zertifikat word list.
 export type Level = 'A1' | 'A2' | 'B1'
 
@@ -8,7 +11,7 @@ export type Tally = { shown: number; known: number; missed: number; almost: numb
 export type Typed = { text: string; verdict: 'correct' | 'almost' | 'wrong'; note?: string }
 
 export type View = {
-  phase: 'card' | 'stats' | 'empty'
+  phase: 'card' | 'stats' | 'empty' | 'asking'
   level: Level
   wordId: number
   isRevealed: boolean
@@ -19,6 +22,9 @@ export type View = {
   nextLabel: string
   due: number
   mode: Mode
+  // Flip mode: the side this card shows first.
+  front?: 'de' | 'en'
+  direction?: Direction
   typed?: Typed
   tally: Tally
   overall: { learning: number; mastered: number; retired: number; unseen: number }

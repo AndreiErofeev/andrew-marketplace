@@ -1,5 +1,6 @@
 import { describe, expect, mock, test } from 'claude-code/testing'
 import type { On } from 'claude-code'
+import type { Engine, MockClock } from 'claude-code/testing'
 
 import { headline } from '../hooks/format'
 import { LEVELS } from '../hooks/levels'
@@ -32,6 +33,7 @@ function world(on: On, store: Record<string, unknown> = {}) {
   on('turn.complete', () => ({ text: '' }))
   on('tool.call', () => ({ result: {} }) as never)
   on('classic.PermissionRequest', () => ({}) as never)
+  on('tool.check', () => ({ decision: 'ask' }) as never)
   return { clock, panes }
 }
 
@@ -307,6 +309,74 @@ describe('levels', () => {
   })
 })
 
+describe('keys and card side', () => {
+  const mount = ($: any) =>
+    $.ui.mount({ plugin: 'learn_german', surface: 'terminal', component: 'Pane', requestId: 'learn_german', props: PANE_PROPS as never })
+  // Claude's dialogs take digits, Enter, Esc, Tab, Space, arrows and y/n: the pane uses other letters.
+  const isSafe = (key: unknown) => typeof key === 'string' && /^[a-z]$/.test(key) && !'yn'.includes(key)
+
+  test('flip mode answers with k, d and h', async ($, on) => {
+    world(on)
+    await $.session.start(START)
+    await $.command.run({ command: 'german', args: '' } as never)
+    const ui = await mount($)
+    await ui.press({ key: 'show' })
+    expect((await ui.find({ key: 'know' }))?.props.hotkey).toBe('k')
+    expect((await ui.find({ key: 'dont' }))?.props.hotkey).toBe('d')
+    expect((await ui.find({ key: 'retire' }))?.props.hotkey).toBe('h')
+    for (const one of await ui.findAll({ type: 'Button' })) expect(isSafe(one.props.hotkey)).toBe(true)
+    await ui.unmount()
+  })
+
+  test('typing mode uses s, w and h', async ($, on) => {
+    world(on)
+    await $.session.start(START)
+    await $.command.run({ command: 'german', args: 'type' } as never)
+    await $.command.run({ command: 'german', args: '' } as never)
+    const ui = await mount($)
+    expect((await ui.find({ key: 'skip' }))?.props.hotkey).toBe('s')
+    expect((await ui.find({ key: 'retire' }))?.props.hotkey).toBe('h')
+    await ui.input({ key: 'answer', text: 'qqqq' })
+    expect((await ui.find({ key: 'next' }))?.props.hotkey).toBe('w')
+    for (const one of await ui.findAll({ type: 'Button' })) expect(isSafe(one.props.hotkey)).toBe(true)
+    await ui.unmount()
+  })
+
+  test('/german show en puts the meaning first and the German word after reveal', async ($, on) => {
+    world(on)
+    await $.session.start(START)
+    const reply = await $.command.run({ command: 'german', args: 'show en' } as never)
+    expect(reply.text).toContain('EN/RU → DE')
+    await $.command.run({ command: 'german', args: '' } as never)
+    const ui = await mount($)
+    expect(await ui.find({ type: 'Text', text: /Recall the German word/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /EN\/RU → DE/ })).toBeDefined()
+    await ui.press({ key: 'show' })
+    expect(await ui.find({ key: 'know' })).toBeDefined()
+    await ui.unmount()
+  })
+
+  test('/german show keeps the side in settings and rejects other values', async ($, on) => {
+    world(on)
+    await $.session.start(START)
+    await $.command.run({ command: 'german', args: 'show mix' } as never)
+    const help = await $.command.run({ command: 'german', args: 'help' } as never)
+    expect(help.text).toContain('cards mix')
+    const bad = await $.command.run({ command: 'german', args: 'show ru' } as never)
+    expect(bad.text).toContain('Usage: /german show <de|en|mix>. Now: mix.')
+  })
+
+  test('saved settings without a side show German first', async ($, on) => {
+    world(on, { settings: { level: 'A2' } })
+    await $.session.start(START)
+    await $.command.run({ command: 'german', args: '' } as never)
+    const ui = await mount($)
+    expect(await ui.find({ type: 'Text', text: /Recall the meaning/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /DE → EN\/RU/ })).toBeDefined()
+    await ui.unmount()
+  })
+})
+
 describe('reset', () => {
   const PROGRESS = { progress: { 5: [1, 0, 1, 0] } }
   const run = ($: any, args: string) => $.command.run({ command: 'german', args } as never)
@@ -401,5 +471,63 @@ describe('scheduling', () => {
     const progress = {}
     expect(pickNext([1, 2, 3], progress, 0, 1, [[1, 5]], 2)).toBe(3)
     expect(pickNext([1, 2, 3], progress, 0, 5, [[1, 5]], 3)).toBe(1)
+  })
+})
+
+describe('when Claude asks the person', () => {
+  const ask = { tool: 'Bash', input: { command: 'rm -rf build' }, tool_use_id: 'u1' } as never
+
+  async function workingPane($: Engine, clock: MockClock) {
+    await $.session.start(START)
+    await $.turn.start({ text: 'fix it', turnId: 't1' })
+    await $.tool.call(edit)
+    await clock.advance(22 * SEC)
+  }
+
+  test('a focused pane shows a screen without keys for 1.5 s, then closes', async ($, on) => {
+    const { clock, panes } = world(on)
+    await workingPane($, clock)
+    expect(panes).toEqual(['open'])
+    const ui = await $.ui.mount({ plugin: 'learn_german', surface: 'terminal', component: 'Pane', requestId: 'learn_german', props: PANE_PROPS as never })
+    const check = $.tool.check(ask)
+    await clock.advance(0)
+    expect(panes).toEqual(['open'])
+    expect(await ui.find({ type: 'Text', text: /Claude needs your answer/ })).toBeDefined()
+    expect(await ui.find({ type: 'Button' })).toBeUndefined()
+    await clock.advance(1.5 * SEC)
+    expect((await check).decision).toBe('ask')
+    expect(panes).toEqual(['open', 'close'])
+    await ui.unmount()
+  })
+
+  test('a pane without focus closes at once', async ($, on) => {
+    const { clock, panes } = world(on)
+    await workingPane($, clock)
+    await $.tool.check(ask)
+    expect(panes).toEqual(['open', 'close'])
+  })
+
+  test('the pane opens again with the same tally after the answer', async ($, on) => {
+    const { clock, panes } = world(on)
+    await workingPane($, clock)
+    const ui = await $.ui.mount({ plugin: 'learn_german', surface: 'terminal', component: 'Pane', requestId: 'learn_german', props: PANE_PROPS as never })
+    await ui.press({ key: 'show' })
+    await ui.press({ key: 'know' })
+    const check = $.tool.check(ask)
+    await clock.advance(1.5 * SEC)
+    await check
+    await $.tool.call(edit)
+    expect(panes).toEqual(['open', 'close', 'open'])
+    expect(await ui.find({ type: 'Text', text: /Claude needs your answer/ })).toBeUndefined()
+    // The round's tally stayed: the footer still counts the answer.
+    expect(await ui.find({ type: 'Text', text: /progress saved/ })).toBeDefined()
+    await ui.unmount()
+  })
+
+  test('a check with no call behind it does not close the pane', async ($, on) => {
+    const { clock, panes } = world(on)
+    await workingPane($, clock)
+    await $.tool.check({ tool: 'Bash', input: { command: 'ls' } })
+    expect(panes).toEqual(['open'])
   })
 })

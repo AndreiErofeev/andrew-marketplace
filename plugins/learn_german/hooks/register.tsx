@@ -1,7 +1,7 @@
 import { atom, read } from 'claude-code'
 import type { Register, Timer } from 'claude-code'
 
-import type { Level, Mode, Tally, View } from '../types'
+import type { Direction, Level, Mode, Tally, View } from '../types'
 import { headline } from './format'
 import { LEVELS, LEVEL_NAMES } from './levels'
 import { INTERVALS, MAX_BOX, RELEARN_GAP, ago, checkAnswer, days, dueCount, grade, pickNext, summary } from './srs'
@@ -14,16 +14,22 @@ const view = atom(VIEW, null)
 
 const BY_ID = new Map(WORDS.map(row => [row[0], row]))
 const LEVEL_HINT: Record<Level, string> = { A1: 'beginner', A2: 'elementary', B1: 'intermediate' }
+const DIRECTIONS: readonly Direction[] = ['de', 'en', 'mix']
+const DIRECTION_HINT: Record<Direction, string> = { de: 'DE → EN/RU', en: 'EN/RU → DE', mix: 'mixed' }
 
 // Tool calls that mean Claude is doing real work, not only reading.
 const ACTION_TOOLS = new Set(['Edit', 'Write', 'MultiEdit', 'NotebookEdit', 'Bash', 'Agent', 'Task'])
 // Tool calls that wait for the person: the pane gets out of the way.
 const ASKS_PERSON = new Set(['AskUserQuestion', 'ExitPlanMode'])
+// When Claude asks the person, a focused pane waits this long before it closes,
+// so keys meant for a card cannot answer Claude's dialog.
+const ASK_GRACE_MS = 1500
 
 export type Settings = {
   isEnabled: boolean
   mode: Mode
   level: Level
+  direction: Direction
   minSeconds: number
   minTools: number
   reopenSeconds: number
@@ -34,6 +40,7 @@ const DEFAULTS: Settings = {
   isEnabled: true,
   mode: 'flip',
   level: 'A1',
+  direction: 'de',
   minSeconds: 20,
   minTools: 3,
   reopenSeconds: 10,
@@ -59,7 +66,7 @@ type Ops = {
   preparePane: (isStudy: boolean) => Promise<void>
   closePane: () => Promise<void>
   finish: () => Promise<void>
-  suspend: () => Promise<void>
+  suspend: (signal?: AbortSignal) => Promise<void>
   resume: () => Promise<void>
   tick: () => Promise<void>
   answer: (g: Grade, typed?: View['typed']) => Promise<void>
@@ -68,6 +75,7 @@ type Ops = {
   advance: () => Promise<void>
   reveal: () => Promise<void>
   setMode: (mode: Mode) => Promise<void>
+  setDirection: (direction: Direction) => Promise<void>
   chooseLevel: (level: Level) => Promise<void>
   resetProgress: () => Promise<void>
   overall: () => View['overall']
@@ -94,6 +102,8 @@ export const register: Register = on => {
   let isOpen = false
   let isManual = false
   let isDismissed = false
+  // Set by the pane's last render: only a focused pane gets keys.
+  let isFocused = false
   let lastClosedAt = -Infinity
   let resetAskedAt = -Infinity
   let closeTimer: Timer | undefined
@@ -104,6 +114,7 @@ export const register: Register = on => {
       if (isLoaded) return
       progress = ((await $.store.get('progress')) as Progress | undefined) ?? {}
       settings = { ...DEFAULTS, ...((await $.store.get('settings')) as Partial<Settings> | undefined) }
+      if (!DIRECTIONS.includes(settings.direction)) settings = { ...settings, direction: DEFAULTS.direction }
       isLoaded = true
     }
 
@@ -146,12 +157,19 @@ export const register: Register = on => {
       return summary(levelProgress(), levelIds().length)
     }
 
+    // The side a new card shows first. 'mix' alternates by a hash of the word and the time.
+    function frontFor(id: number, now: number): 'de' | 'en' {
+      if (settings.direction !== 'mix') return settings.direction
+      return (id * 31 + Math.floor(now / 1000)) % 2 === 0 ? 'de' : 'en'
+    }
+
     // The next card, or the "empty" screen when every word is retired.
     function nextView(prev: View, tally: Tally, now: number): View {
       const id = pickNext(levelIds(), progress, now, tally.shown, relearn, prev.wordId)
       const base = {
         ...prev,
         level: settings.level,
+        direction: settings.direction,
         tally,
         due: dueCount(levelProgress(), now),
         overall: overall(),
@@ -172,6 +190,7 @@ export const register: Register = on => {
         ...base,
         phase: 'card',
         wordId: id,
+        front: frontFor(id, now),
         isRevealed: false,
         isFresh,
         label,
@@ -188,8 +207,9 @@ export const register: Register = on => {
       await load()
       const current = await getView()
       const isDark = await isDarkTheme()
-      if (current === null || current.phase !== 'card' || !isOpen) {
-        const keepTally = current !== null && current.phase === 'card'
+      const isCard = current !== null && (current.phase === 'card' || current.phase === 'asking')
+      if (current === null || !isCard || !isOpen) {
+        const keepTally = isCard
         if (!keepTally) {
           history = []
           relearn = []
@@ -229,6 +249,7 @@ export const register: Register = on => {
       if (!isOpen) return
       isOpen = false
       isManual = false
+      isFocused = false
       lastClosedAt = await $.clock.now()
       await $.ui.close({ id: PANE })
     }
@@ -277,12 +298,24 @@ export const register: Register = on => {
       if (isWorkTurn(await $.clock.now())) await openPane()
     }
 
-    async function suspend() {
+    // Claude asks the person: a focused pane first shows a screen without keys,
+    // then closes, so keys pressed for a card do not reach Claude's dialog.
+    async function suspend(signal?: AbortSignal) {
       turn.isSuspended = true
-      if (isOpen && !isManual) {
-        isOpen = false
-        await $.ui.close({ id: PANE })
+      if (!isOpen || isManual) return
+      if (isFocused) {
+        const current = await getView()
+        if (current !== null && current.phase === 'card') await $.state.set(VIEW, { ...current, phase: 'asking' })
+        try {
+          await $.clock.sleep(ASK_GRACE_MS, { signal })
+        } catch {
+          // Aborted: close now.
+        }
+        if (!isOpen || isManual) return
       }
+      isOpen = false
+      isFocused = false
+      await $.ui.close({ id: PANE })
     }
 
     async function resume() {
@@ -371,6 +404,16 @@ export const register: Register = on => {
       if (current !== null) await $.state.set(VIEW, { ...current, mode, isRevealed: false, typed: undefined })
     }
 
+    // A card not yet revealed turns to the new side; 'mix' keeps its side.
+    async function setDirection(direction: Direction) {
+      settings = { ...settings, direction }
+      await saveSettings()
+      const current = await getView()
+      if (current === null) return
+      const front = direction === 'mix' || current.isRevealed ? current.front : direction
+      await $.state.set(VIEW, { ...current, direction, front })
+    }
+
     // A new list: the missed words of the old one do not come back in this round.
     async function chooseLevel(level: Level) {
       settings = { ...settings, level }
@@ -409,6 +452,7 @@ export const register: Register = on => {
       advance,
       reveal,
       setMode,
+      setDirection,
       chooseLevel,
       resetProgress,
       overall,
@@ -417,8 +461,9 @@ export const register: Register = on => {
     await load()
     await $.command.register({
       name: 'german',
-      description: 'German flashcards (Goethe A1, A2, B1): open now, level, on|off, flip|type, stats, reset, set <seconds|tools|reopen|stats> <n>',
-      argumentHint: '[level a1|a2|b1|on|off|flip|type|stats|reset|set …]',
+      description:
+        'German flashcards (Goethe A1, A2, B1): open now, level, on|off, flip|type, show de|en|mix, stats, reset, set <seconds|tools|reopen|stats> <n>',
+      argumentHint: '[level a1|a2|b1|on|off|flip|type|show de|en|mix|stats|reset|set …]',
     })
     $.clock.every(2000, () => void tick())
     return next(e)
@@ -440,13 +485,23 @@ export const register: Register = on => {
     if (!turn.isActive) return next(e)
     turn.calls += 1
     if (ACTION_TOOLS.has(String(e.tool))) turn.actions += 1
-    if (ASKS_PERSON.has(String(e.tool))) await ops?.suspend()
+    if (ASKS_PERSON.has(String(e.tool))) await ops?.suspend(next.signal)
     else await ops?.tick()
     const ran = await next(e)
     await ops?.resume()
     return ran
   }).catch(($, e, next) => next(e))
 
+  // A permission dialog opens after this verdict: the pane goes first.
+  on('tool.check', async ($, e, next) => {
+    const verdict = await next(e)
+    if (verdict.decision === 'ask' && e.tool_use_id !== undefined && e.agentId === undefined && turn.isActive) {
+      await ops?.suspend(next.signal)
+    }
+    return verdict
+  }).catch(($, e, next) => next(e))
+
+  // Fallback: closes the pane at once if tool.check did not.
   on('classic.PermissionRequest', async ($, e, next) => {
     if (turn.isActive) await ops?.suspend()
     return next(e)
@@ -466,6 +521,7 @@ export const register: Register = on => {
       isOpen = false
       isManual = false
       isDismissed = true
+      isFocused = false
       lastClosedAt = await $.clock.now()
     }
     return next(e)
@@ -494,6 +550,15 @@ export const register: Register = on => {
     if (word === 'flip' || word === 'type') {
       await ops.setMode(word)
       return { text: `German cards: ${word} mode.` }
+    }
+    if (word === 'show') {
+      const direction = DIRECTIONS.find(one => one === key)
+      if (direction === undefined) {
+        return { text: `Usage: /german show <de|en|mix>. Now: ${settings.direction}.` }
+      }
+      await ops.setDirection(direction)
+      const what = direction === 'mix' ? 'German or EN/RU first, mixed' : `${DIRECTION_HINT[direction]}`
+      return { text: `German cards: flip cards show ${what}.` }
     }
     if (word === 'level') {
       const level = LEVEL_NAMES.find(one => one.toLowerCase() === key)
@@ -547,11 +612,11 @@ export const register: Register = on => {
     const s = settings
     return {
       text:
-        `German cards are ${s.isEnabled ? 'on' : 'off'}, level ${s.level}, ${s.mode} mode. ` +
+        `German cards are ${s.isEnabled ? 'on' : 'off'}, level ${s.level}, ${s.mode} mode, cards ${s.direction} (${DIRECTION_HINT[s.direction]}). ` +
         `The pane opens after ${s.minSeconds}s of work ` +
         `(an edit/command, or ${s.minTools}+ tool calls); again at once within ${s.reopenSeconds}s; ` +
         `stats show ${s.statsSeconds}s before it closes.\n` +
-        'Usage: /german [level <a1|a2|b1>|on|off|flip|type|stats|reset|set <seconds|tools|reopen|stats> <n>]',
+        'Usage: /german [level <a1|a2|b1>|on|off|flip|type|show <de|en|mix>|stats|reset|set <seconds|tools|reopen|stats> <n>]',
     }
   })
 
@@ -559,6 +624,7 @@ export const register: Register = on => {
     const v = await read($, view)
     const { Box, Text, Button } = $.ui.resolve(e)
     if (v === null) return <Text dimColor>Loading…</Text>
+    isFocused = e.props.isFocused
     const c = v.isDark ? PALETTE.dark : PALETTE.light
     const width = Math.max(10, e.props.bodyColumns - 2)
     const isWide = e.props.bodyColumns >= WIDE
@@ -571,7 +637,26 @@ export const register: Register = on => {
         {right}
       </Box>
     )
-    const title = <Text color={c.text}>Deutsch · Goethe {v.level}</Text>
+    const title = (
+      <Text color={c.text}>
+        Deutsch · Goethe {v.level}
+        {v.mode === 'flip' ? ` · ${DIRECTION_HINT[v.direction ?? 'de']}` : ''}
+      </Text>
+    )
+
+    // No buttons and no input: keys do nothing until the pane closes.
+    if (v.phase === 'asking') {
+      return (
+        <Box flexDirection="column" paddingX={1}>
+          {title}
+          {rule}
+          <Text> </Text>
+          <Text color={c.warn} bold>
+            Claude needs your answer — returning…
+          </Text>
+        </Box>
+      )
+    }
 
     if (v.phase === 'stats') {
       const n = answered(t)
@@ -728,11 +813,11 @@ export const register: Register = on => {
                 show answer
               </Button>
             ) : (
-              <Button key="next" plain hotkey="n" onPress={() => void ops?.advance()}>
+              <Button key="next" plain hotkey="w" onPress={() => void ops?.advance()}>
                 next word
               </Button>
             )}
-            <Button key="retire" plain hotkey="3" dimColor onPress={() => void ops?.answer('retire')}>
+            <Button key="retire" plain hotkey="h" dimColor onPress={() => void ops?.answer('retire')}>
               don't show again
             </Button>
           </Box>
@@ -742,37 +827,46 @@ export const register: Register = on => {
       )
     }
 
+    const german = [
+      <Text color={c.text} bold>
+        {word.title}
+      </Text>,
+      word.sub !== '' && <Text color={c.dim}>{word.sub}</Text>,
+    ]
+    const meaning = [
+      <Text color={c.text} bold>
+        {en}
+      </Text>,
+      <Text color={c.accent}>{ru}</Text>,
+    ]
+    const isGermanFront = v.front !== 'en'
     return (
       <Box flexDirection="column" paddingX={1}>
         {header}
         <Text color={c.dim}>{v.label}</Text>
-        <Text color={c.text} bold>
-          {word.title}
-        </Text>
-        {word.sub !== '' && <Text color={c.dim}>{word.sub}</Text>}
+        {isGermanFront ? german : meaning}
         <Text> </Text>
         {v.isRevealed ? (
           <Box flexDirection="column">
-            <Text color={c.text} bold>
-              {en}
-            </Text>
-            <Text color={c.accent}>{ru}</Text>
+            {isGermanFront ? meaning : german}
             <Text> </Text>
             {exampleLines}
             <Box flexDirection={isWide ? 'row' : 'column'} columnGap={1}>
-              {option('know', '1', 'Know', v.nextLabel, 'know')}
-              {option('dont', '2', "Don't know", 'repeat this session', 'dontKnow')}
-              {option('retire', '3', "Don't show again", 'remove from reviews', 'retire')}
+              {option('know', 'k', 'Know', v.nextLabel, 'know')}
+              {option('dont', 'd', "Don't know", 'repeat this session', 'dontKnow')}
+              {option('retire', 'h', "Don't show again", 'remove from reviews', 'retire')}
             </Box>
           </Box>
         ) : (
           <Box flexDirection="column">
-            <Text color={c.dim}>Recall the meaning before revealing.</Text>
+            <Text color={c.dim}>
+              {isGermanFront ? 'Recall the meaning before revealing.' : 'Recall the German word (with article) before revealing.'}
+            </Text>
             <Text> </Text>
             <Box flexDirection="row">
               <Box borderStyle="round" borderColor={c.line} paddingX={1}>
                 <Button key="show" plain hotkey="s" onPress={() => void ops?.reveal()}>
-                  Reveal meaning
+                  {isGermanFront ? 'Reveal meaning' : 'Reveal German'}
                 </Button>
               </Box>
             </Box>
